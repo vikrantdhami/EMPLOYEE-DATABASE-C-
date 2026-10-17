@@ -1,0 +1,559 @@
+#include <iostream>
+#include <string>
+#include <fstream>
+#include <sstream>
+#include <limits>
+#include <stdexcept>
+#include <iomanip>
+
+using namespace std;
+
+
+// ======================================================
+// EMPLOYEE DATABASE MANAGEMENT SYSTEM
+// ======================================================
+//
+// Features:
+// 1. Add Employee
+// 2. Display Employees
+// 3. Search Employee
+// 4. Update Employee
+// 5. Delete Employee
+// 6. Exit
+//
+// Concepts used:
+// - Classes and objects
+// - Arrays
+// - Functions
+// - Searching and deletion
+// - Exception handling
+// - File handling
+//
+// Maximum employees: 100
+// Employee records are stored in employees.txt.
+//
+// ======================================================
+
+
+// Maximum number of employees the array can store.
+const int CAPACITY = 100;
+
+// File used to store employee records.
+const string FILE_NAME = "employees.txt";
+
+
+// ======================================================
+// EMPLOYEE CLASS
+// ======================================================
+
+class Employee
+{
+public:
+    int id;
+    string name;
+    int age;
+    string dept;
+    string gender;
+};
+
+
+// ======================================================
+// SAFE INTEGER INPUT
+// ======================================================
+
+// Reads a complete integer input line.
+// Rejects letters and mixed inputs such as "12abc".
+int getInteger(const string& message)
+{
+    string input;
+
+    cout << message;
+
+    if (!getline(cin, input))
+    {
+        throw runtime_error("Input stream closed.");
+    }
+
+    stringstream ss(input);
+
+    int value;
+    char extra;
+
+    if (!(ss >> value) || (ss >> extra))
+    {
+        throw invalid_argument(
+            "Please enter a valid whole number."
+        );
+    }
+
+    return value;
+}
+
+
+// ======================================================
+// SAFE TEXT INPUT
+// ======================================================
+
+// Reads a full line, including spaces.
+// Rejects empty or whitespace-only input.
+string getText(const string& message)
+{
+    string value;
+
+    cout << message;
+
+    if (!getline(cin, value))
+    {
+        throw runtime_error("Input stream closed.");
+    }
+
+    if (value.find_first_not_of(" \t\r\n") == string::npos)
+    {
+        throw invalid_argument(
+            "This field cannot be empty."
+        );
+    }
+
+    return value;
+}
+
+
+// ======================================================
+// FIND EMPLOYEE
+// ======================================================
+
+// Returns the index of the employee if found.
+// Returns -1 when the employee does not exist.
+int findEmployee(
+    Employee employees[],
+    int count,
+    int id
+)
+{
+    for (int i = 0; i < count; i++)
+    {
+        if (employees[i].id == id)
+        {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+
+// ======================================================
+// DISPLAY ONE EMPLOYEE
+// ======================================================
+
+void displayEmployee(const Employee& employee)
+{
+    cout << "\n----------------------------------------\n";
+    cout << "Employee ID : " << employee.id << '\n';
+    cout << "Name        : " << employee.name << '\n';
+    cout << "Age         : " << employee.age << '\n';
+    cout << "Department  : " << employee.dept << '\n';
+    cout << "Gender      : " << employee.gender << '\n';
+    cout << "----------------------------------------\n";
+}
+
+
+// ======================================================
+// SAVE EMPLOYEES TO FILE
+// ======================================================
+
+// Uses a simple quoted text format so names and
+// departments containing spaces can be saved safely.
+void saveEmployees(Employee employees[], int count)
+{
+    ofstream file(FILE_NAME);
+
+    if (!file)
+    {
+        throw runtime_error(
+            "Could not open the employee data file for saving."
+        );
+    }
+
+    for (int i = 0; i < count; i++)
+    {
+        file << employees[i].id << ' '
+             << employees[i].age << ' '
+             << quoted(employees[i].name) << ' '
+             << quoted(employees[i].dept) << ' '
+             << quoted(employees[i].gender) << '\n';
+    }
+
+    if (!file)
+    {
+        throw runtime_error(
+            "An error occurred while saving employee records."
+        );
+    }
+}
+
+
+// ======================================================
+// LOAD EMPLOYEES FROM FILE
+// ======================================================
+
+// Loads records when the program starts.
+// Missing file means this is the first run.
+// Invalid or excessive records are reported as errors.
+void loadEmployees(Employee employees[], int& count)
+{
+    ifstream file(FILE_NAME);
+
+    if (!file)
+    {
+        // A missing file is normal on the first run.
+        return;
+    }
+
+    Employee temp;
+    int loaded = 0;
+
+    while (file >> temp.id
+                >> temp.age
+                >> quoted(temp.name)
+                >> quoted(temp.dept)
+                >> quoted(temp.gender))
+    {
+        if (loaded >= CAPACITY)
+        {
+            throw runtime_error(
+                "The data file contains more employees than the array can hold."
+            );
+        }
+
+        if (temp.age < 1 || temp.age > 120)
+        {
+            throw runtime_error(
+                "The data file contains an invalid employee age."
+            );
+        }
+
+        if (findEmployee(employees, loaded, temp.id) != -1)
+        {
+            throw runtime_error(
+                "The data file contains duplicate employee IDs."
+            );
+        }
+
+        employees[loaded] = temp;
+        loaded++;
+    }
+
+    // If the file ended normally, loading succeeded.
+    // If parsing stopped because of malformed data, report it.
+    if (!file.eof())
+    {
+        throw runtime_error(
+            "The employee data file contains invalid or incomplete records."
+        );
+    }
+
+    count = loaded;
+}
+
+
+// ======================================================
+// ADD EMPLOYEE
+// ======================================================
+
+void addEmployee(Employee employees[], int& count)
+{
+    // Check capacity before writing to the array.
+    if (count >= CAPACITY)
+    {
+        throw runtime_error(
+            "Employee database is full!"
+        );
+    }
+
+    cout << "\n========== ADD EMPLOYEE ==========\n";
+
+    Employee newEmployee;
+
+    newEmployee.id = getInteger("Enter Employee ID: ");
+
+    if (findEmployee(employees, count, newEmployee.id) != -1)
+    {
+        throw invalid_argument(
+            "This Employee ID already exists."
+        );
+    }
+
+    newEmployee.name = getText("Enter Employee Name: ");
+
+    newEmployee.age = getInteger("Enter Employee Age: ");
+
+    if (newEmployee.age < 1 || newEmployee.age > 120)
+    {
+        throw invalid_argument(
+            "Age must be between 1 and 120."
+        );
+    }
+
+    newEmployee.dept = getText("Enter Department: ");
+    newEmployee.gender = getText("Enter Gender: ");
+
+    // Store the complete employee in the next free position.
+    employees[count] = newEmployee;
+
+    // Update the count only after valid data has been collected.
+    count++;
+
+    // Save the updated database.
+    saveEmployees(employees, count);
+
+    cout << "\nEmployee added successfully!\n";
+    cout << "Employees stored: " << count << "/" << CAPACITY << '\n';
+}
+
+
+// ======================================================
+// DISPLAY ALL EMPLOYEES
+// ======================================================
+
+void displayEmployees(Employee employees[], int count)
+{
+    if (count == 0)
+    {
+        cout << "\nNo employees found.\n";
+        return;
+    }
+
+    cout << "\n========== ALL EMPLOYEES ==========\n";
+
+    for (int i = 0; i < count; i++)
+    {
+        displayEmployee(employees[i]);
+    }
+
+    cout << "\nTotal employees: " << count << '\n';
+}
+
+
+// ======================================================
+// SEARCH EMPLOYEE
+// ======================================================
+
+void searchEmployee(Employee employees[], int count)
+{
+    if (count == 0)
+    {
+        cout << "\nNo employees available to search.\n";
+        return;
+    }
+
+    int id = getInteger("\nEnter Employee ID to search: ");
+
+    int index = findEmployee(employees, count, id);
+
+    if (index == -1)
+    {
+        cout << "\nEmployee not found.\n";
+        return;
+    }
+
+    cout << "\nEmployee found!\n";
+
+    displayEmployee(employees[index]);
+}
+
+
+// ======================================================
+// UPDATE EMPLOYEE
+// ======================================================
+
+void updateEmployee(Employee employees[], int count)
+{
+    if (count == 0)
+    {
+        cout << "\nNo employees available to update.\n";
+        return;
+    }
+
+    int id = getInteger("\nEnter Employee ID to update: ");
+
+    int index = findEmployee(employees, count, id);
+
+    if (index == -1)
+    {
+        cout << "\nEmployee not found.\n";
+        return;
+    }
+
+    cout << "\nCurrent employee details:\n";
+    displayEmployee(employees[index]);
+
+    cout << "\nEnter the new details.\n";
+
+    // Collect new details separately first.
+    // If input fails, the existing record remains unchanged.
+    Employee updatedEmployee = employees[index];
+
+    updatedEmployee.name = getText("Enter New Name: ");
+
+    updatedEmployee.age = getInteger("Enter New Age: ");
+
+    if (updatedEmployee.age < 1 || updatedEmployee.age > 120)
+    {
+        throw invalid_argument(
+            "Age must be between 1 and 120."
+        );
+    }
+
+    updatedEmployee.dept = getText("Enter New Department: ");
+    updatedEmployee.gender = getText("Enter New Gender: ");
+
+    // Keep the original ID and replace the record.
+    employees[index] = updatedEmployee;
+
+    saveEmployees(employees, count);
+
+    cout << "\nEmployee updated successfully!\n";
+}
+
+
+// ======================================================
+// DELETE EMPLOYEE
+// ======================================================
+
+void deleteEmployee(Employee employees[], int& count)
+{
+    if (count == 0)
+    {
+        cout << "\nNo employees available to delete.\n";
+        return;
+    }
+
+    int id = getInteger("\nEnter Employee ID to delete: ");
+
+    int index = findEmployee(employees, count, id);
+
+    if (index == -1)
+    {
+        cout << "\nEmployee not found.\n";
+        return;
+    }
+
+    // Ask for confirmation before deleting the record.
+    string confirmation = getText(
+        "Type YES to confirm deletion: "
+    );
+
+    if (confirmation != "YES")
+    {
+        cout << "\nDeletion cancelled.\n";
+        return;
+    }
+
+    // Shift later employees one position to the left.
+    for (int i = index; i < count - 1; i++)
+    {
+        employees[i] = employees[i + 1];
+    }
+
+    count--;
+
+    // Save the updated records.
+    saveEmployees(employees, count);
+
+    cout << "\nEmployee deleted successfully!\n";
+    cout << "Employees remaining: " << count << '\n';
+}
+
+
+// ======================================================
+// MAIN FUNCTION
+// ======================================================
+
+int main()
+{
+    Employee employees[CAPACITY];
+
+    // Starts at zero, then is updated by loading saved records.
+    int count = 0;
+
+    int choice = 0;
+
+    try
+    {
+        loadEmployees(employees, count);
+
+        cout << "\nEmployee database loaded successfully.\n";
+        cout << "Records loaded: " << count << '\n';
+    }
+    catch (const exception& e)
+    {
+        cerr << "\nCould not load employee data: "
+             << e.what() << '\n';
+
+        cerr << "The program will exit to avoid overwriting "
+             << "possibly damaged data.\n";
+
+        return 1;
+    }
+
+    while (choice != 6)
+    {
+        cout << "\n========================================\n";
+        cout << "       EMPLOYEE DATABASE SYSTEM\n";
+        cout << "========================================\n";
+
+        cout << "Employees stored: "
+             << count << "/" << CAPACITY << '\n';
+
+        cout << "\n1. Add Employee\n";
+        cout << "2. Display Employees\n";
+        cout << "3. Search Employee\n";
+        cout << "4. Update Employee\n";
+        cout << "5. Delete Employee\n";
+        cout << "6. Exit\n";
+
+        try
+        {
+            choice = getInteger("\nEnter your choice: ");
+
+            switch (choice)
+            {
+                case 1:
+                    addEmployee(employees, count);
+                    break;
+
+                case 2:
+                    displayEmployees(employees, count);
+                    break;
+
+                case 3:
+                    searchEmployee(employees, count);
+                    break;
+
+                case 4:
+                    updateEmployee(employees, count);
+                    break;
+
+                case 5:
+                    deleteEmployee(employees, count);
+                    break;
+
+                case 6:
+                    cout << "\nExiting Employee Database...\n";
+                    break;
+
+                default:
+                    cout << "\nInvalid choice. Enter a number from 1 to 6.\n";
+                    break;
+            }
+        }
+        catch (const exception& e)
+        {
+            cout << "\nError: " << e.what() << '\n';
+        }
+    }
+
+    return 0;
+}
+
